@@ -7,7 +7,7 @@ const navItems = [
   { href: '/dashboard', label: 'Home', icon: '⌂' },
   { href: '/communicate', label: 'Communicate', icon: '◌' },
   { href: '/study', label: 'Study room', icon: '◷' },
-  { href: '/consultant', label: 'Support', icon: '✦' },
+  { href: '/consultant', label: 'Mentor', icon: '✦' },
 ];
 
 export function Sidebar() {

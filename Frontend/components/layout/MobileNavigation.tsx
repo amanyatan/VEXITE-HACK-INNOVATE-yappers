@@ -7,7 +7,7 @@ const items = [
   ['⌂', 'Home', '/dashboard'],
   ['◌', 'Talk', '/communicate'],
   ['◷', 'Study', '/study'],
-  ['✦', 'Support', '/consultant'],
+  ['✦', 'Mentor', '/consultant'],
 ];
 
 export function MobileNavigation() {

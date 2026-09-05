@@ -6,7 +6,7 @@ function getTtsConfig() {
   const endpoint = process.env.SARVAM_TTS_ENDPOINT || `${baseUrl.replace(/\/$/, '')}/text-to-speech`;
   const model = process.env.SARVAM_TTS_MODEL || 'bulbul:v3';
   const languageCode = process.env.SARVAM_TTS_LANGUAGE_CODE || 'hi-IN';
-  const speaker = process.env.SARVAM_VOICE || 'shubh';
+  const speaker = process.env.SARVAM_VOICE || 'priya';
 
   return { apiKey, endpoint, model, languageCode, speaker };
 }

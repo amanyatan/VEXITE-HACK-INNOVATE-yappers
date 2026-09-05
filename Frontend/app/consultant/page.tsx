@@ -3,7 +3,7 @@ import { ConsultantShell } from '@/components/consultant/ConsultantShell';
 
 export default function ConsultantPage() {
   return (
-    <AppShell title="Consultant" subtitle="Supportive coaching for pressure, overwhelm, and next steps.">
+    <AppShell title="Mentor" subtitle="A short, caring voice conversation for your next step.">
       <ConsultantShell />
     </AppShell>
   );
