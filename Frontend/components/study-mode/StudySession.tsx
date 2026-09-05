@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import { CharacterStage } from '@/components/avatar/CharacterStage';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -40,6 +41,7 @@ export function StudySession() {
   const [breakNotice, setBreakNotice] = useState('');
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const localModelRef = useRef<cocoSsd.ObjectDetection | null>(null);
   const lastNudgeRef = useRef<FocusState | null>(null);
   const completionHandledRef = useRef(false);
   const breakMilestonesRef = useRef<number[]>([]);
@@ -73,6 +75,27 @@ export function StudySession() {
   useEffect(() => () => releaseMedia(), [releaseMedia]);
 
   useEffect(() => {
+    if (!sessionActive || visionModelUrl || localModelRef.current) return;
+    let cancelled = false;
+    setModelConnection('CHECKING');
+    setStatus('Loading the local camera focus model...');
+    void cocoSsd.load().then((model) => {
+      if (cancelled) return;
+      localModelRef.current = model;
+      setModelConnection('CONNECTED');
+      setStatus('Local camera focus model is connected.');
+    }).catch((error: unknown) => {
+      if (cancelled) return;
+      setModelConnection('ERROR');
+      setFocusState('UNKNOWN');
+      setStatus(error instanceof Error ? `Local focus model failed to load: ${error.message}` : 'Local focus model failed to load.');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionActive]);
+
+  useEffect(() => {
     if (!sessionActive) return;
     const timer = window.setInterval(() => setTimeLeft((current) => Math.max(0, current - 1)), 1000);
     return () => window.clearInterval(timer);
@@ -100,9 +123,19 @@ export function StudySession() {
 
   const monitorFrame = useCallback(async () => {
     if (!visionModelUrl) {
-      setModelConnection('DISCONNECTED');
-      setFocusState('UNKNOWN');
-      setStatus('Vision model is not connected. Add NEXT_PUBLIC_STUDY_VISION_URL to enable focus detection.');
+      const model = localModelRef.current;
+      if (!model || !videoRef.current || videoRef.current.readyState < 2) {
+        setModelConnection('CHECKING');
+        setFocusState('UNKNOWN');
+        return;
+      }
+      const predictions = await model.detect(videoRef.current);
+      const person = predictions.some((prediction) => prediction.class === 'person' && prediction.score >= 0.5);
+      const phone = predictions.some((prediction) => prediction.class === 'cell phone' && prediction.score >= 0.45);
+      const state: FocusState = phone ? 'PHONE_LIKELY' : person ? 'FOCUSED' : 'ABSENT';
+      setModelConnection('CONNECTED');
+      setFocusState(state);
+      setStatus(state === 'FOCUSED' ? 'Local model confirms a person is present. Stillness is treated as focused.' : 'Local model detected a distraction or no person.');
       return;
     }
     setModelConnection('CHECKING');
@@ -218,8 +251,8 @@ export function StudySession() {
       completionHandledRef.current = false;
       setSessionActive(true);
       setFocusState('UNKNOWN');
-      setStatus(visionModelUrl ? 'Camera monitoring is active. Waiting for the ML model to verify focus.' : 'Camera is ready, but no ML model is connected. Focus detection is paused.');
-      setModelConnection(visionModelUrl ? 'CHECKING' : 'DISCONNECTED');
+      setStatus(visionModelUrl ? 'Camera monitoring is active. Waiting for the ML model to verify focus.' : 'Camera monitoring is active. Loading the local focus model.');
+      setModelConnection('CHECKING');
       void say(`Study mode started for ${cleanSubject}. I will keep you focused.`);
       startListening((transcript) => {
         if (/^(haan|han|yes|okay|ok|theek)/i.test(transcript)) void say('Theek hai bhai, keep going.');
@@ -297,7 +330,7 @@ export function StudySession() {
                   </span>
                 </div>
                 <p className={`mt-2 text-lg font-semibold ${focusState === 'FOCUSED' ? 'text-emerald-300' : focusState === 'UNKNOWN' ? 'text-zinc-300' : 'text-amber-200'}`}>{focusLabels[focusState]}</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-500">{modelConnection === 'CONNECTED' ? 'The model treats a still seated student as focused and only flags sustained external distractions.' : 'Camera is active, but the ML endpoint is not connected. No focus judgment is being made.'}</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-500">{modelConnection === 'CONNECTED' ? 'A seated person is treated as focused. Phone detection or no person in frame triggers a voice reminder.' : 'The camera focus model is loading. No focus judgment is being made yet.'}</p>
               </div>
               {permissionDenied && <p role="alert" className="text-sm text-rose-200">Camera or microphone permission is required to continue monitoring.</p>}
               {status && <p className="text-xs text-zinc-500">{status}</p>}
