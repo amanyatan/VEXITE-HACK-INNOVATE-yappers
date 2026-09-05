@@ -40,6 +40,8 @@ export function StudySession() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [focusState, setFocusState] = useState<FocusState>('UNKNOWN');
   const [modelConnection, setModelConnection] = useState<ModelConnection>('DISCONNECTED');
+  const [cameraFrameReady, setCameraFrameReady] = useState(false);
+  const [detectionSummary, setDetectionSummary] = useState('Waiting for the first camera analysis.');
   const [status, setStatus] = useState('');
   const [breakNotice, setBreakNotice] = useState('');
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -132,7 +134,7 @@ export function StudySession() {
     if (!visionModelUrl) {
       const model = localModelRef.current;
       if (!model || !videoRef.current || videoRef.current.readyState < 2) {
-        setModelConnection('CHECKING');
+        setDetectionSummary('Waiting for camera video data.');
         setFocusState('UNKNOWN');
         return;
       }
@@ -142,11 +144,13 @@ export function StudySession() {
       const state: FocusState = phone ? 'PHONE_LIKELY' : person ? 'FOCUSED' : 'ABSENT';
       setModelConnection('CONNECTED');
       setFocusState(state);
+      setDetectionSummary(`Detected ${person ? 'a person' : 'no person'}${phone ? ' and a phone' : ''}.`);
       setStatus(state === 'FOCUSED' ? 'Local model confirms a person is present. Stillness is treated as focused.' : 'Local model detected a distraction or no person.');
       return;
     }
     setModelConnection('CHECKING');
     if (!videoRef.current || videoRef.current.readyState < 2) {
+      setDetectionSummary('Waiting for camera video data.');
       setFocusState('UNKNOWN');
       return;
     }
@@ -199,6 +203,7 @@ export function StudySession() {
           : 'NOT_FOCUSED';
     setFocusState(state);
     setModelConnection('CONNECTED');
+    setDetectionSummary('External ML model returned a focus result.');
     setStatus(state === 'FOCUSED' ? 'ML model confirms you are focused.' : 'ML model detected that you are not focused.');
   }, [subject]);
 
@@ -258,6 +263,7 @@ export function StudySession() {
       completionHandledRef.current = false;
       setSessionActive(true);
       setFocusState('UNKNOWN');
+      setCameraFrameReady(false);
       setStatus(visionModelUrl ? 'Camera monitoring is active. Waiting for the ML model to verify focus.' : 'Camera monitoring is active. Loading the local focus model.');
       setModelConnection('CHECKING');
       void say(`Study mode started for ${cleanSubject}. I will keep you focused.`);
@@ -321,7 +327,16 @@ export function StudySession() {
             </div>
             <div className="flex flex-col gap-4 p-5 sm:p-7">
               <div className="overflow-hidden rounded-2xl border border-white/10 bg-black">
-                <video ref={videoRef} autoPlay muted playsInline aria-label="Study camera preview" className="aspect-video w-full object-cover" />
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  onLoadedData={() => setCameraFrameReady(true)}
+                  onCanPlay={() => setCameraFrameReady(true)}
+                  aria-label="Study camera preview"
+                  className="aspect-video w-full object-cover"
+                />
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="flex items-center justify-between gap-3">
@@ -338,6 +353,7 @@ export function StudySession() {
                 </div>
                 <p className={`mt-2 text-lg font-semibold ${focusState === 'FOCUSED' ? 'text-emerald-300' : focusState === 'UNKNOWN' ? 'text-zinc-300' : 'text-amber-200'}`}>{focusLabels[focusState]}</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-500">{modelConnection === 'CONNECTED' ? 'A seated person is treated as focused. Phone detection or no person in frame triggers a voice reminder.' : 'The camera focus model is loading. No focus judgment is being made yet.'}</p>
+                <p className="mt-2 text-xs text-zinc-600">{cameraFrameReady ? detectionSummary : 'Waiting for camera permission/video frames.'}</p>
               </div>
               {permissionDenied && <p role="alert" className="text-sm text-rose-200">Camera or microphone permission is required to continue monitoring.</p>}
               {status && <p className="text-xs text-zinc-500">{status}</p>}
