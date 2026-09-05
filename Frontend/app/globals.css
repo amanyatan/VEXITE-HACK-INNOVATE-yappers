@@ -45,6 +45,122 @@ a { text-decoration: none; }
 .pulse-ring { animation: pulse-ring 2.8s ease-in-out infinite; }
 .wave-bar { animation: wave 1s ease-in-out infinite; transform-origin: bottom; }
 
+.roadmap-stack {
+  --roadmap-card-width: min(20rem, 72vw);
+  --roadmap-card-height: 13.5rem;
+  --roadmap-rotate: 10deg;
+  --roadmap-inset: 2.25rem;
+  position: relative;
+  width: calc(var(--roadmap-card-width) + (var(--roadmap-inset) * 2));
+  height: calc(var(--roadmap-card-height) * .92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.roadmap-stack-card {
+  --roadmap-pad: 4px;
+  --roadmap-radius: 16px;
+  position: absolute;
+  z-index: 0;
+  width: var(--roadmap-card-width);
+  height: var(--roadmap-card-height);
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: var(--roadmap-radius);
+  animation: roadmap-rotate 9s cubic-bezier(.75,0,0,1.01) infinite;
+  box-shadow: 0 18px 50px rgba(0,0,0,.3);
+}
+.roadmap-stack-content {
+  position: absolute;
+  inset: var(--roadmap-pad);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  border-radius: calc(var(--roadmap-radius) - var(--roadmap-pad));
+  background: rgba(6,6,10,.8);
+  padding: 20px;
+  backdrop-filter: blur(10px);
+}
+.roadmap-stack-eyebrow,
+.roadmap-stack-label {
+  color: rgba(255,255,255,.68);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.roadmap-stack-title {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+}
+.roadmap-stack-detail {
+  color: rgba(255,255,255,.9);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.45;
+}
+.roadmap-card-yellow {
+  --roadmap-start: radial-gradient(circle at 20% 0%, rgba(245,190,72,.95), rgba(139,92,246,.58) 55%, rgba(8,8,16,.9));
+  --roadmap-z1: 3;
+  --roadmap-t1: 0;
+  --roadmap-l1: calc(var(--roadmap-card-width) / 2);
+  --roadmap-t2: 2.25rem;
+  --roadmap-l2: var(--roadmap-inset);
+  --roadmap-t3: 2.25rem;
+  --roadmap-l3: calc(var(--roadmap-card-width) + var(--roadmap-inset));
+  background: var(--roadmap-start);
+}
+.roadmap-card-blue {
+  --roadmap-z1: 0;
+  --roadmap-t1: 2.25rem;
+  --roadmap-l1: calc(var(--roadmap-card-width) + var(--roadmap-inset));
+  --roadmap-t2: 0;
+  --roadmap-l2: calc(var(--roadmap-card-width) / 2);
+  --roadmap-t3: 2.25rem;
+  --roadmap-l3: var(--roadmap-inset);
+  background: radial-gradient(circle at 20% 0%, rgba(56,189,248,.95), rgba(37,99,235,.7) 48%, rgba(8,8,16,.9));
+}
+.roadmap-card-violet {
+  --roadmap-z1: 0;
+  --roadmap-t1: 2.25rem;
+  --roadmap-l1: var(--roadmap-inset);
+  --roadmap-t2: 2.25rem;
+  --roadmap-l2: calc(var(--roadmap-card-width) + var(--roadmap-inset));
+  --roadmap-t3: 0;
+  --roadmap-l3: calc(var(--roadmap-card-width) / 2);
+  background: radial-gradient(circle at 20% 0%, rgba(232,121,249,.95), rgba(124,58,237,.75) 48%, rgba(8,8,16,.9));
+}
+.roadmap-stack-card:nth-child(1) { --roadmap-delay: 0s; }
+.roadmap-stack-card:nth-child(2) { --roadmap-delay: 3s; }
+.roadmap-stack-card:nth-child(3) { --roadmap-delay: 6s; }
+@keyframes roadmap-rotate {
+  0%, 99.99% { z-index: var(--roadmap-z1); top: var(--roadmap-t1); left: var(--roadmap-l1); transform: translateX(-50%) rotate(0deg); }
+  33.33% { z-index: 0; top: var(--roadmap-t2); left: var(--roadmap-l2); transform: translateX(-50%) rotate(calc(var(--roadmap-rotate) * -1)); }
+  66.66% { z-index: 0; top: var(--roadmap-t3); left: var(--roadmap-l3); transform: translateX(-50%) rotate(var(--roadmap-rotate)); }
+}
+.roadmap-stack-lines {
+  position: absolute;
+  inset: auto 0 -4px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.roadmap-stack-lines span {
+  display: block;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(139,92,246,.8), transparent);
+  box-shadow: 0 0 10px rgba(99,102,241,.8);
+}
+.roadmap-stack-lines span:first-child { height: 4px; opacity: .4; filter: blur(3px); }
+.roadmap-stack-lines span:last-child { width: 55%; background: linear-gradient(to right, transparent, rgba(34,211,238,.9), transparent); }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

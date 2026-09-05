@@ -22,7 +22,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </Card>
-        <Card className="flex min-h-[390px] items-center justify-center">
+        <Card className="flex min-h-[390px] items-center justify-center overflow-hidden">
           <CharacterStage caption="Your companion is ready" />
         </Card>
       </div>
