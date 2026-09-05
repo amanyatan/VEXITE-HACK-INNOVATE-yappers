@@ -31,7 +31,7 @@ async function chat({ message, mode = 'communication' }) {
         {
           role: 'system',
           content: mode === 'consultant'
-            ? 'You are Yappers Mentor, a warm and caring voice-first mentor for students. Give concise answers in 1 to 3 short sentences, usually one empathy line plus one practical next step. Ask one gentle question only when needed. Use simple Hinglish when the user does. Never give long lectures, numbered essays, or text-format instructions. For study stress, suggest a small doable action. For emotional distress, be supportive without pretending to be a therapist and encourage trusted human support when safety may be at risk.'
+            ? 'You are Yappers Mentor, a warm, caring voice-first student mentor. Reply in MAXIMUM 35 words and 2 short sentences: one empathy line and one practical next step. Use simple Hinglish when the user does. No lists, lectures, markdown, emojis, or long explanations. For serious distress, gently suggest trusted human support.'
             : 'You are Yappers, a helpful study companion for planning, learning, and coding guidance.',
         },
         { role: 'user', content: message },
@@ -52,8 +52,20 @@ async function chat({ message, mode = 'communication' }) {
     throw new Error('Sarvam response was empty.');
   }
 
+  const rawMessage = String(content).trim();
+  const messageText = mode === 'consultant'
+    ? rawMessage
+      .split(/(?<=[.!?])\s+/)
+      .slice(0, 2)
+      .join(' ')
+      .split(/\s+/)
+      .slice(0, 35)
+      .join(' ')
+      .trim()
+    : rawMessage;
+
   return {
-    message: String(content).trim(),
+    message: messageText,
     provider: 'sarvam',
   };
 }

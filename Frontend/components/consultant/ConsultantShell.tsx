@@ -19,7 +19,15 @@ export function ConsultantShell() {
   const listenAgain = useCallback(() => {
     if (!voiceModeRef.current || speaking) return;
     try {
-      startListening((transcript) => void sendMessageRef.current(transcript));
+      startListening(
+        (transcript) => void sendMessageRef.current(transcript),
+        (message) => {
+          voiceModeRef.current = false;
+          setVoiceActive(false);
+          setMentorState('idle');
+          setVoiceError(message);
+        },
+      );
       setMentorState('listening');
     } catch (error) {
       voiceModeRef.current = false;
@@ -75,7 +83,20 @@ export function ConsultantShell() {
     voiceModeRef.current = true;
     setVoiceActive(true);
     setVoiceError('');
-    listenAgain();
+    if (!navigator.mediaDevices?.getUserMedia) {
+      voiceModeRef.current = false;
+      setVoiceActive(false);
+      setVoiceError('Microphone access is not supported in this browser.');
+      return;
+    }
+    void navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      stream.getTracks().forEach((track) => track.stop());
+      listenAgain();
+    }).catch(() => {
+      voiceModeRef.current = false;
+      setVoiceActive(false);
+      setVoiceError('Microphone permission is required. Allow access and try again.');
+    });
   };
 
   return (

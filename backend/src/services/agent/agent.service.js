@@ -38,7 +38,7 @@ function buildLocalResponse(message, mode = 'communication') {
   if (mode === 'consultant') {
     return {
       message:
-        'Samajh raha hoon. Pressure bahut zyada lag raha hai. Chalo ek chhota step choose karte hain: aaj sirf ek topic ya ek task finalize kar lete hain. Uske baad wohi karenge.',
+        'Samajh raha hoon bhai. Aaj sirf ek chhota topic choose karo aur 20 minutes usi par focus karo.',
       provider: 'local-fallback',
       resources: [],
     };
@@ -72,7 +72,9 @@ async function handleChat(payload = {}) {
         const result = await sarvamChat({ message: String(message).trim(), mode });
         return {
           conversationId: conversationId || `conv_${Date.now()}`,
-          message: result.message,
+          message: mode === 'consultant'
+            ? result.message.replace(/\s+/g, ' ').trim()
+            : result.message,
           provider: result.provider,
           resources: [],
         };
@@ -85,7 +87,9 @@ async function handleChat(payload = {}) {
       const result = await geminiChat({ message: String(message).trim(), mode });
       return {
         conversationId: conversationId || `conv_${Date.now()}`,
-        message: result.message,
+        message: mode === 'consultant'
+          ? result.message.replace(/\s+/g, ' ').trim()
+          : result.message,
         provider: result.provider,
         resources: [],
       };

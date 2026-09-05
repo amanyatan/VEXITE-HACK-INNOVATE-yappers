@@ -13,7 +13,7 @@ type SpeechRecognitionLike = {
   interimResults: boolean;
   lang: string;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: Event) => void) | null;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   start: () => void;
   stop: () => void;
@@ -57,7 +57,7 @@ export function useVoiceChat() {
     setListening(false);
   }, []);
 
-  const startListening = useCallback((onTranscript: (text: string) => void) => {
+  const startListening = useCallback((onTranscript: (text: string) => void, onError?: (message: string) => void) => {
     const recognition = getSpeechRecognition();
     if (!recognition) {
       throw new Error('Voice input is not supported in this browser. Try Chrome or Edge.');
@@ -77,9 +77,10 @@ export function useVoiceChat() {
       recognitionRef.current = null;
       setListening(false);
     };
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
       recognitionRef.current = null;
       setListening(false);
+      onError?.(event.type === 'error' ? 'Microphone listening failed. Check browser microphone permission.' : 'Voice input stopped unexpectedly.');
     };
     recognitionRef.current = recognition;
     recognition.start();
