@@ -33,6 +33,7 @@ function formatTime(seconds: number) {
 export function StudySession() {
   const [subject, setSubject] = useState('');
   const [goal, setGoal] = useState('');
+  const [textFieldError, setTextFieldError] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(120);
   const [setupOpen, setSetupOpen] = useState(true);
   const [hasSession, setHasSession] = useState(false);
@@ -295,6 +296,16 @@ export function StudySession() {
     }
   };
 
+  const updateAlphabeticField = (field: 'subject' | 'goal', value: string) => {
+    if (!/^[A-Za-z\s]*$/.test(value)) {
+      setTextFieldError('Subject and goal can contain letters and spaces only. Numbers are not allowed.');
+      return;
+    }
+    setTextFieldError('');
+    if (field === 'subject') setSubject(value);
+    else setGoal(value);
+  };
+
   return (
     <div className="relative min-h-[calc(100vh-12rem)]">
       {setupOpen && (
@@ -305,15 +316,16 @@ export function StudySession() {
             <p className="mt-2 text-sm leading-6 text-zinc-400">Set your goal and we will create a distraction-free session with voice-only encouragement.</p>
             <div className="mt-6 space-y-4">
               <label className="block text-sm text-zinc-300">What do you have to study?
-                <Input autoFocus value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="e.g. Machine Learning" className="mt-2" />
+                <Input autoFocus value={subject} onChange={(event) => updateAlphabeticField('subject', event.target.value)} placeholder="e.g. Machine Learning" inputMode="text" pattern="[A-Za-z ]*" className="mt-2" />
               </label>
               <label className="block text-sm text-zinc-300">What is the goal?
-                <Input value={goal} onChange={(event) => setGoal(event.target.value)} placeholder="e.g. Finish neural network basics" className="mt-2" />
+                <Input value={goal} onChange={(event) => updateAlphabeticField('goal', event.target.value)} placeholder="e.g. Finish neural network basics" inputMode="text" pattern="[A-Za-z ]*" className="mt-2" />
               </label>
               <label className="block text-sm text-zinc-300">Duration (minutes)
                 <Input type="number" min={15} max={480} step={15} value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))} className="mt-2" />
               </label>
             </div>
+            {textFieldError && <p role="alert" className="mt-4 text-sm text-amber-200">{textFieldError}</p>}
             <div className="mt-5 rounded-2xl border border-violet-400/20 bg-violet-500/[0.08] p-4 text-sm text-violet-100">
               Break reminders are planned every 60 minutes. Camera and microphone are used only while this session is running.
             </div>
