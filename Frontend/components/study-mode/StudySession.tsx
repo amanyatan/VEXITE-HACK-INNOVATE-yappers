@@ -8,6 +8,7 @@ import { backendBaseUrl } from '@/lib/constants';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
 
 type FocusState = 'FOCUSED' | 'NOT_FOCUSED' | 'UNKNOWN' | 'DISTRACTED' | 'PHONE_LIKELY' | 'ABSENT';
+type ModelConnection = 'DISCONNECTED' | 'CHECKING' | 'CONNECTED' | 'ERROR';
 
 const focusLabels: Record<FocusState, string> = {
   FOCUSED: 'Focused',
@@ -34,6 +35,7 @@ export function StudySession() {
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [focusState, setFocusState] = useState<FocusState>('UNKNOWN');
+  const [modelConnection, setModelConnection] = useState<ModelConnection>('DISCONNECTED');
   const [status, setStatus] = useState('');
   const [breakNotice, setBreakNotice] = useState('');
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -98,10 +100,12 @@ export function StudySession() {
 
   const monitorFrame = useCallback(async () => {
     if (!visionModelUrl) {
+      setModelConnection('DISCONNECTED');
       setFocusState('UNKNOWN');
       setStatus('Vision model is not connected. Add NEXT_PUBLIC_STUDY_VISION_URL to enable focus detection.');
       return;
     }
+    setModelConnection('CHECKING');
     if (!videoRef.current || videoRef.current.readyState < 2) {
       setFocusState('UNKNOWN');
       return;
@@ -154,6 +158,7 @@ export function StudySession() {
           ? normalizedState
           : 'NOT_FOCUSED';
     setFocusState(state);
+    setModelConnection('CONNECTED');
     setStatus(state === 'FOCUSED' ? 'ML model confirms you are focused.' : 'ML model detected that you are not focused.');
   }, [subject]);
 
@@ -161,14 +166,16 @@ export function StudySession() {
     if (!sessionActive) return;
     const monitor = window.setInterval(() => {
       void monitorFrame().catch((error: unknown) => {
+        setModelConnection('ERROR');
         setFocusState('UNKNOWN');
-        setStatus(error instanceof Error ? error.message : 'Vision monitoring failed.');
+        setStatus(error instanceof Error ? `ML model connection failed: ${error.message}` : 'ML model connection failed.');
       });
     }, 3000);
     const firstMonitor = window.setTimeout(() => {
       void monitorFrame().catch((error: unknown) => {
+        setModelConnection('ERROR');
         setFocusState('UNKNOWN');
-        setStatus(error instanceof Error ? error.message : 'Vision monitoring failed.');
+        setStatus(error instanceof Error ? `ML model connection failed: ${error.message}` : 'ML model connection failed.');
       });
     }, 0);
     return () => {
@@ -212,6 +219,7 @@ export function StudySession() {
       setSessionActive(true);
       setFocusState('UNKNOWN');
       setStatus(visionModelUrl ? 'Camera monitoring is active. Waiting for the ML model to verify focus.' : 'Camera is ready, but no ML model is connected. Focus detection is paused.');
+      setModelConnection(visionModelUrl ? 'CHECKING' : 'DISCONNECTED');
       void say(`Study mode started for ${cleanSubject}. I will keep you focused.`);
       startListening((transcript) => {
         if (/^(haan|han|yes|okay|ok|theek)/i.test(transcript)) void say('Theek hai bhai, keep going.');
@@ -276,9 +284,20 @@ export function StudySession() {
                 <video ref={videoRef} autoPlay muted playsInline aria-label="Study camera preview" className="aspect-video w-full object-cover" />
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-zinc-600">Focus monitor</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-zinc-600">Focus monitor</p>
+                  <span className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.16em] ${
+                    modelConnection === 'CONNECTED'
+                      ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                      : modelConnection === 'CHECKING'
+                        ? 'border-amber-400/30 bg-amber-400/10 text-amber-200'
+                        : 'border-rose-400/30 bg-rose-400/10 text-rose-200'
+                  }`}>
+                    {modelConnection === 'CONNECTED' ? 'ML connected' : modelConnection === 'CHECKING' ? 'Connecting' : 'ML disconnected'}
+                  </span>
+                </div>
                 <p className={`mt-2 text-lg font-semibold ${focusState === 'FOCUSED' ? 'text-emerald-300' : focusState === 'UNKNOWN' ? 'text-zinc-300' : 'text-amber-200'}`}>{focusLabels[focusState]}</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-500">{visionModelUrl ? 'The model treats a still seated student as focused and only flags sustained external distractions.' : 'Camera is active, but the ML endpoint is not connected. No focus judgment is being made.'}</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-500">{modelConnection === 'CONNECTED' ? 'The model treats a still seated student as focused and only flags sustained external distractions.' : 'Camera is active, but the ML endpoint is not connected. No focus judgment is being made.'}</p>
               </div>
               {permissionDenied && <p role="alert" className="text-sm text-rose-200">Camera or microphone permission is required to continue monitoring.</p>}
               {status && <p className="text-xs text-zinc-500">{status}</p>}
