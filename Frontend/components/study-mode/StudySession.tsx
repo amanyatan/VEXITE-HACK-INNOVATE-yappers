@@ -13,6 +13,7 @@ import { useVoiceChat } from '@/hooks/useVoiceChat';
 
 type FocusState = 'FOCUSED' | 'NOT_FOCUSED' | 'UNKNOWN' | 'DISTRACTED' | 'PHONE_LIKELY' | 'ABSENT';
 type ModelConnection = 'DISCONNECTED' | 'CHECKING' | 'CONNECTED' | 'ERROR';
+type ActivityState = 'STUDYING' | 'USING_PHONE' | 'NOT_WORKING' | 'IDLE';
 
 const focusLabels: Record<FocusState, string> = {
   FOCUSED: 'Focused',
@@ -42,6 +43,8 @@ export function StudySession() {
   const [modelConnection, setModelConnection] = useState<ModelConnection>('DISCONNECTED');
   const [cameraFrameReady, setCameraFrameReady] = useState(false);
   const [detectionSummary, setDetectionSummary] = useState('Waiting for the first camera analysis.');
+  const [activityState, setActivityState] = useState<ActivityState>('IDLE');
+  const [lastDetectionAt, setLastDetectionAt] = useState('');
   const [status, setStatus] = useState('');
   const [breakNotice, setBreakNotice] = useState('');
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -139,16 +142,19 @@ export function StudySession() {
         return;
       }
       const predictions = await model.detect(videoRef.current);
-      const person = predictions.some((prediction) => prediction.class === 'person' && prediction.score >= 0.5);
-      const phone = predictions.some((prediction) => prediction.class === 'cell phone' && prediction.score >= 0.45);
+      const personPrediction = predictions.find((prediction) => prediction.class === 'person' && prediction.score >= 0.5);
+      const phonePrediction = predictions.find((prediction) => prediction.class === 'cell phone' && prediction.score >= 0.45);
+      const person = Boolean(personPrediction);
+      const phone = Boolean(phonePrediction);
       const state: FocusState = phone ? 'PHONE_LIKELY' : person ? 'FOCUSED' : 'ABSENT';
+      setActivityState(phone ? 'USING_PHONE' : person ? 'STUDYING' : 'IDLE');
       setModelConnection('CONNECTED');
       setFocusState(state);
-      setDetectionSummary(`Detected ${person ? 'a person' : 'no person'}${phone ? ' and a phone' : ''}.`);
+      setLastDetectionAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setDetectionSummary(`Person ${person ? `${Math.round((personPrediction?.score || 0) * 100)}%` : 'not detected'}${phone ? ` · Phone ${Math.round((phonePrediction?.score || 0) * 100)}%` : ' · No phone detected'}.`);
       setStatus(state === 'FOCUSED' ? 'Local model confirms a person is present. Stillness is treated as focused.' : 'Local model detected a distraction or no person.');
       return;
     }
-    setModelConnection('CHECKING');
     if (!videoRef.current || videoRef.current.readyState < 2) {
       setDetectionSummary('Waiting for camera video data.');
       setFocusState('UNKNOWN');
@@ -203,7 +209,9 @@ export function StudySession() {
           : 'NOT_FOCUSED';
     setFocusState(state);
     setModelConnection('CONNECTED');
-    setDetectionSummary('External ML model returned a focus result.');
+    setActivityState(state === 'PHONE_LIKELY' ? 'USING_PHONE' : state === 'FOCUSED' ? 'STUDYING' : state === 'ABSENT' ? 'IDLE' : 'NOT_WORKING');
+    setLastDetectionAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    setDetectionSummary(`External model: ${state.toLowerCase().replaceAll('_', ' ')}.`);
     setStatus(state === 'FOCUSED' ? 'ML model confirms you are focused.' : 'ML model detected that you are not focused.');
   }, [subject]);
 
@@ -213,6 +221,7 @@ export function StudySession() {
       void monitorFrame().catch((error: unknown) => {
         setModelConnection('ERROR');
         setFocusState('UNKNOWN');
+        setActivityState('IDLE');
         setStatus(error instanceof Error ? `ML model connection failed: ${error.message}` : 'ML model connection failed.');
       });
     }, 3000);
@@ -354,6 +363,19 @@ export function StudySession() {
                 <p className={`mt-2 text-lg font-semibold ${focusState === 'FOCUSED' ? 'text-emerald-300' : focusState === 'UNKNOWN' ? 'text-zinc-300' : 'text-amber-200'}`}>{focusLabels[focusState]}</p>
                 <p className="mt-2 text-sm leading-6 text-zinc-500">{modelConnection === 'CONNECTED' ? 'A seated person is treated as focused. Phone detection or no person in frame triggers a voice reminder.' : 'The camera focus model is loading. No focus judgment is being made yet.'}</p>
                 <p className="mt-2 text-xs text-zinc-600">{cameraFrameReady ? detectionSummary : 'Waiting for camera permission/video frames.'}</p>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {([
+                    ['STUDYING', 'Studying', 'text-emerald-300'],
+                    ['USING_PHONE', 'Using phone', 'text-rose-300'],
+                    ['NOT_WORKING', 'Not working', 'text-amber-300'],
+                    ['IDLE', 'Idle / away', 'text-zinc-300'],
+                  ] as const).map(([key, label, color]) => (
+                    <div key={key} className={`rounded-xl border px-3 py-2 ${activityState === key ? 'border-violet-400/50 bg-violet-500/10' : 'border-white/[0.06] bg-white/[0.02]'}`}>
+                      <p className={`text-xs font-medium ${activityState === key ? color : 'text-zinc-600'}`}>{activityState === key ? '● ' : ''}{label}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-[11px] text-zinc-600">{lastDetectionAt ? `Last checked ${lastDetectionAt} · Updates every 3 seconds` : 'Waiting for first detection'}</p>
               </div>
               {permissionDenied && <p role="alert" className="text-sm text-rose-200">Camera or microphone permission is required to continue monitoring.</p>}
               {status && <p className="text-xs text-zinc-500">{status}</p>}
