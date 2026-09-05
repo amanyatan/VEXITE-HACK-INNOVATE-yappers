@@ -3,7 +3,7 @@ import { CommunicationShell } from '@/components/communication/CommunicationShel
 
 export default function CommunicatePage() {
   return (
-    <AppShell title="Communicate" subtitle="Plan what to learn, find current resources, and build simple MVPs.">
+    <AppShell title="Communicate" subtitle="Think out loud, ask better questions, and learn with Yappers.">
       <CommunicationShell />
     </AppShell>
   );
