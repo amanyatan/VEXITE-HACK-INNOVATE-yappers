@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-backend-webgl';
+import '@tensorflow/tfjs-backend-cpu';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import { CharacterStage } from '@/components/avatar/CharacterStage';
 import { Button } from '@/components/ui/Button';
@@ -79,7 +82,11 @@ export function StudySession() {
     let cancelled = false;
     setModelConnection('CHECKING');
     setStatus('Loading the local camera focus model...');
-    void cocoSsd.load().then((model) => {
+    void (async () => {
+      await tf.setBackend('webgl').catch(() => tf.setBackend('cpu'));
+      await tf.ready();
+      return cocoSsd.load({ base: 'lite_mobilenet_v2' });
+    })().then((model) => {
       if (cancelled) return;
       localModelRef.current = model;
       setModelConnection('CONNECTED');
