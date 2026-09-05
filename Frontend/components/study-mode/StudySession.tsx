@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/Input';
 import { backendBaseUrl } from '@/lib/constants';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
 
-type FocusState = 'FOCUSED' | 'DISTRACTED' | 'PHONE_LIKELY' | 'ABSENT';
+type FocusState = 'FOCUSED' | 'NOT_FOCUSED' | 'DISTRACTED' | 'PHONE_LIKELY' | 'ABSENT';
 
 const focusLabels: Record<FocusState, string> = {
   FOCUSED: 'Focused',
+  NOT_FOCUSED: 'Not focused',
   DISTRACTED: 'Take a breath and return to your goal',
   PHONE_LIKELY: 'Phone detected',
   ABSENT: 'Come back when you are ready',
@@ -31,7 +32,7 @@ export function StudySession() {
   const [sessionActive, setSessionActive] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [focusState, setFocusState] = useState<FocusState>('FOCUSED');
+  const [focusState, setFocusState] = useState<FocusState>('NOT_FOCUSED');
   const [status, setStatus] = useState('');
   const [breakNotice, setBreakNotice] = useState('');
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -61,7 +62,7 @@ export function StudySession() {
     releaseMedia();
     setSessionActive(false);
     setTimeLeft(0);
-    setFocusState('FOCUSED');
+    setFocusState('NOT_FOCUSED');
     setBreakNotice('');
     setStatus('');
   }, [releaseMedia, stopListening, stopSpeaking]);
@@ -95,7 +96,15 @@ export function StudySession() {
   }, [say, sessionActive, timeLeft]);
 
   const monitorFrame = useCallback(async () => {
-    if (!visionModelUrl || !videoRef.current || videoRef.current.readyState < 2) return;
+    if (!visionModelUrl) {
+      setFocusState('NOT_FOCUSED');
+      setStatus('Vision model is not configured, so Study Mode will not claim that you are focused.');
+      return;
+    }
+    if (!videoRef.current || videoRef.current.readyState < 2) {
+      setFocusState('NOT_FOCUSED');
+      return;
+    }
     const canvas = document.createElement('canvas');
     canvas.width = 320;
     canvas.height = 240;
@@ -106,22 +115,47 @@ export function StudySession() {
       body: JSON.stringify({ image: canvas.toDataURL('image/jpeg', 0.65), sessionId: subject }),
     });
     if (!response.ok) throw new Error('The study vision model could not analyze this frame.');
-    const payload = await response.json() as { state?: FocusState };
-    if (payload.state && payload.state in focusLabels) setFocusState(payload.state);
+    const payload = await response.json() as {
+      state?: string;
+      focused?: boolean;
+      objectDetected?: boolean;
+      phoneDetected?: boolean;
+    };
+    const state = payload.phoneDetected || payload.objectDetected
+      ? 'PHONE_LIKELY'
+      : payload.focused === true || payload.state === 'FOCUSED'
+        ? 'FOCUSED'
+        : payload.state === 'DISTRACTED' || payload.state === 'ABSENT'
+          ? payload.state
+          : 'NOT_FOCUSED';
+    setFocusState(state);
+    setStatus(state === 'FOCUSED' ? 'ML model confirms you are focused.' : 'ML model detected that you are not focused.');
   }, [subject]);
 
   useEffect(() => {
-    if (!sessionActive || !visionModelUrl) return;
+    if (!sessionActive) return;
     const monitor = window.setInterval(() => {
-      void monitorFrame().catch((error: unknown) => setStatus(error instanceof Error ? error.message : 'Vision monitoring failed.'));
-    }, 8000);
-    return () => window.clearInterval(monitor);
+      void monitorFrame().catch((error: unknown) => {
+        setFocusState('NOT_FOCUSED');
+        setStatus(error instanceof Error ? error.message : 'Vision monitoring failed.');
+      });
+    }, 3000);
+    const firstMonitor = window.setTimeout(() => {
+      void monitorFrame().catch((error: unknown) => {
+        setFocusState('NOT_FOCUSED');
+        setStatus(error instanceof Error ? error.message : 'Vision monitoring failed.');
+      });
+    }, 0);
+    return () => {
+      window.clearInterval(monitor);
+      window.clearTimeout(firstMonitor);
+    };
   }, [monitorFrame, sessionActive]);
 
   useEffect(() => {
     if (!sessionActive || focusState === 'FOCUSED' || lastNudgeRef.current === focusState) return;
     lastNudgeRef.current = focusState;
-    void say(focusState === 'PHONE_LIKELY' ? 'Bhai padh le, kal paper hai.' : 'Bhai, wapas study par focus karte hain.');
+    void say('Bhai padh le, kal paper hai.');
   }, [focusState, say, sessionActive]);
 
   const startSession = async () => {
@@ -151,7 +185,8 @@ export function StudySession() {
       setHasSession(true);
       completionHandledRef.current = false;
       setSessionActive(true);
-      setStatus(visionModelUrl ? 'Camera monitoring is active.' : 'Camera is ready. Add NEXT_PUBLIC_STUDY_VISION_URL to connect your ML model.');
+      setFocusState('NOT_FOCUSED');
+      setStatus(visionModelUrl ? 'Camera monitoring is active. Waiting for the ML model to verify focus.' : 'Camera is ready, but no ML model is configured. Focus will remain unverified.');
       void say(`Study mode started for ${cleanSubject}. I will keep you focused.`);
       startListening((transcript) => {
         if (/^(haan|han|yes|okay|ok|theek)/i.test(transcript)) void say('Theek hai bhai, keep going.');
