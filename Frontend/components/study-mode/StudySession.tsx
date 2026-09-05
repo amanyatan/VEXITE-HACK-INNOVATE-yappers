@@ -83,6 +83,16 @@ export function StudySession() {
   useEffect(() => () => releaseMedia(), [releaseMedia]);
 
   useEffect(() => {
+    if (!sessionActive || !streamRef.current || !videoRef.current) return;
+    const video = videoRef.current;
+    video.srcObject = streamRef.current;
+    void video.play().then(() => setCameraFrameReady(true)).catch((error: unknown) => {
+      setCameraFrameReady(false);
+      setStatus(error instanceof Error ? `Camera preview failed: ${error.message}` : 'Camera preview failed.');
+    });
+  }, [sessionActive]);
+
+  useEffect(() => {
     if (!sessionActive || visionModelUrl || localModelRef.current) return;
     let cancelled = false;
     setModelConnection('CHECKING');
@@ -264,7 +274,6 @@ export function StudySession() {
 
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
       setTimeLeft(durationMinutes * 60);
       breakMilestonesRef.current = Array.from({ length: Math.floor(durationMinutes / 60) }, (_, index) => (durationMinutes - (index + 1) * 60) * 60).filter((value) => value > 0);
       setSetupOpen(false);
