@@ -3,7 +3,7 @@ import { StudySession } from '@/components/study-mode/StudySession';
 
 export default function StudyPage() {
   return (
-    <AppShell title="Study Mode" subtitle="Pick a subject, set the goal, and run a focused session with camera consent.">
+    <AppShell title="Study Mode" subtitle="Set a goal, start the timer, and let Yappers keep you accountable by voice.">
       <StudySession />
     </AppShell>
   );
